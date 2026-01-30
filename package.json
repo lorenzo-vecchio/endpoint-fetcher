@@ -1,0 +1,35 @@
+{
+  "name": "fetcher",
+  "version": "1.0.0",
+  "description": "Type-safe API client builder using fetch",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "api",
+    "client",
+    "fetch",
+    "typescript",
+    "type-safe"
+  ],
+  "author": "Lorenzo Vecchio",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
