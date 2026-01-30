@@ -20,7 +20,7 @@ npm install endpoint-fetcher
 ## Basic Usage
 
 ```typescript
-import { createApiClient, EndpointConfig } from 'fetcher';
+import { createApiClient, EndpointConfig } from 'endpoint-fetcher';
 
 type User = { id: string; name: string; email: string };
 
@@ -301,7 +301,7 @@ try {
 ### 10. Complex Example - Full API Client
 
 ```typescript
-import { createApiClient, EndpointConfig } from 'fetcher';
+import { createApiClient, EndpointConfig } from 'endpoint-fetcher';
 
 // Types
 type User = { id: string; name: string; email: string };
