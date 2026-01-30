@@ -1,4 +1,4 @@
-# Fetcher
+# endpoint-fetcher
 
 A type-safe API client builder using the Fetch API with full TypeScript support.
 
@@ -158,17 +158,17 @@ const api = createApiClient(
         const formData = new FormData();
         formData.append('file', input.file);
         formData.append('category', input.category);
-      
+    
         const response = await fetch('https://api.example.com/upload', {
           method: 'POST',
           body: formData,
           // Note: Don't set Content-Type for FormData
         });
-      
+    
         if (!response.ok) {
           throw new Error('Upload failed');
         }
-      
+    
         return response.json();
       },
     } as EndpointConfig
@@ -184,11 +184,11 @@ const api = createApiClient(
           `https://api.example.com/files/${input.id}`,
           { method: 'GET' }
         );
-      
+    
         if (!response.ok) {
           throw new Error('Download failed');
         }
-      
+    
         return response.blob();
       },
     } as EndpointConfig<{ id: string }, Blob>,
@@ -358,12 +358,12 @@ const api = createApiClient(
           q: input.query,
           ...(input.limit && { limit: input.limit.toString() }),
         });
-      
+    
         const response = await fetch(
           `https://api.example.com${path}?${params}`,
           { method: 'GET' }
         );
-      
+    
         if (!response.ok) throw new Error('Search failed');
         return response.json();
       },

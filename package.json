@@ -13,7 +13,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
@@ -25,10 +27,26 @@
     "client",
     "fetch",
     "typescript",
-    "type-safe"
+    "type-safe",
+    "http",
+    "rest",
+    "api-client",
+    "typed",
+    "fetcher"
   ],
   "author": "Lorenzo Vecchio",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lorenzo-vecchio/endpoint-fetcher.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lorenzo-vecchio/endpoint-fetcher/issues"
+  },
+  "homepage": "https://github.com/lorenzo-vecchio/endpoint-fetcher#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "tsup": "^8.5.1",
