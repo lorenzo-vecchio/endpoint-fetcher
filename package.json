@@ -1,5 +1,5 @@
 {
-  "name": "fetcher",
+  "name": "endpoint-fetcher",
   "version": "1.0.0",
   "description": "Type-safe API client builder using fetch",
   "main": "./dist/index.js",
