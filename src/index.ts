@@ -77,6 +77,7 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
           fetch: fetchInstance,
           method: endpoint.method,
           path,
+          baseUrl: config.baseUrl,
         });
       }
 

@@ -146,7 +146,7 @@ await api.deleteUser({ id: '123' });
 
 ### 6. Custom Handler for Special Cases
 
-Use custom handlers when you need full control over the request (e.g., file uploads, custom headers, non-JSON responses).
+Use custom handlers when you need full control over the request (e.g., file uploads, custom headers, non-JSON responses). The handler receives `{ input, fetch, method, path, baseUrl }`.
 
 ```typescript
 const api = createApiClient(
@@ -154,12 +154,12 @@ const api = createApiClient(
     uploadFile: {
       method: 'POST',
       path: '/upload',
-      handler: async ({ input, fetch }) => {
+      handler: async ({ input, fetch, path, baseUrl }) => {
         const formData = new FormData();
         formData.append('file', input.file);
         formData.append('category', input.category);
   
-        const response = await fetch('https://api.example.com/upload', {
+        const response = await fetch(`${baseUrl}${path}`, {
           method: 'POST',
           body: formData,
           // Note: Don't set Content-Type for FormData
@@ -171,17 +171,17 @@ const api = createApiClient(
   
         return response.json();
       },
-    } as EndpointConfig
+    } as EndpointConfig<
       { file: File; category: string }, 
       { url: string; id: string }
     >,
 
     downloadFile: {
       method: 'GET',
-      path: '/download',
-      handler: async ({ input, fetch }) => {
+      path: (input: { id: string }) => `/files/${input.id}`,
+      handler: async ({ input, fetch, path, baseUrl }) => {
         const response = await fetch(
-          `https://api.example.com/files/${input.id}`,
+          `${baseUrl}${path}`,
           { method: 'GET' }
         );
   
@@ -353,21 +353,21 @@ const api = createApiClient(
     searchPosts: {
       method: 'GET',
       path: '/posts/search',
-      handler: async ({ input, fetch, path }) => {
+      handler: async ({ input, fetch, path, baseUrl }) => {
         const params = new URLSearchParams({
           q: input.query,
           ...(input.limit && { limit: input.limit.toString() }),
         });
   
         const response = await fetch(
-          `https://api.example.com${path}?${params}`,
+          `${baseUrl}${path}?${params}`,
           { method: 'GET' }
         );
   
         if (!response.ok) throw new Error('Search failed');
         return response.json();
       },
-    } as EndpointConfig
+    } as EndpointConfig<
       { query: string; limit?: number }, 
       Post[], 
       ApiError
@@ -398,17 +398,27 @@ Creates a type-safe API client.
 **Parameters:**
 
 - `endpoints`: Object mapping endpoint names to configurations
-
   - `method`: HTTP method ('GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE')
   - `path`: Static string or function `(input) => string`
-  - `handler`: Optional custom handler function (receives `{ input, fetch, method, path }`)
+  - `handler`: Optional custom handler function (receives `{ input, fetch, method, path, baseUrl }`)
 - `config`: Client configuration
-
   - `baseUrl`: Base URL for all requests
   - `fetch`: Optional custom fetch instance
   - `defaultHeaders`: Optional headers applied to all requests
 
 **Returns:** Type-safe client object with methods for each endpoint
+
+### Custom Handler Parameters
+
+When using a custom handler, you receive an object with:
+
+- `input`: The typed input parameters passed to the endpoint
+- `fetch`: The fetch instance (either custom or global)
+- `method`: The HTTP method for this endpoint
+- `path`: The resolved path (after applying input to path function if applicable)
+- `baseUrl`: The base URL from the client configuration
+
+This allows you to construct full URLs using `${baseUrl}${path}` in your custom handlers.
 
 ## TypeScript Support
 

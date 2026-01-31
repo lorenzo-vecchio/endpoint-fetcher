@@ -8,6 +8,7 @@ export type EndpointConfig<TInput = any, TOutput = any, TError = any> = {
         fetch: typeof fetch;
         method: HttpMethod;
         path: string;
+        baseUrl: string;
     }) => Promise<TOutput>;
 };
 
