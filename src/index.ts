@@ -4,7 +4,8 @@ import type {
   HttpMethod, 
   EndpointConfig, 
   ApiConfig, 
-  EndpointDefinitions 
+  EndpointDefinitions,
+  Hooks
 } from './types';
 
 export function createApiClient<TEndpoints extends EndpointDefinitions>(
@@ -12,11 +13,51 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
   config: ApiConfig
 ) {
   const fetchInstance = config.fetch ?? globalThis.fetch;
+  const hooks = config.hooks;
 
   const buildUrl = (path: string, baseUrl: string) => {
     const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
     return `${normalizedBase}${normalizedPath}`;
+  };
+
+  // Enhanced fetch that applies hooks - matches fetch signature
+  const enhancedFetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit
+  ): Promise<Response> => {
+    // Convert input to string URL
+    let url = typeof input === 'string' 
+      ? input 
+      : input instanceof URL 
+      ? input.toString() 
+      : input.url;
+    
+    let finalInit = { ...init };
+
+    // Run beforeRequest hook
+    if (hooks?.beforeRequest) {
+      const result = await hooks.beforeRequest(url, finalInit);
+      url = result.url;
+      finalInit = result.init;
+    }
+
+    try {
+      let response = await fetchInstance(url, finalInit);
+
+      // Run afterResponse hook
+      if (hooks?.afterResponse) {
+        response = await hooks.afterResponse(response, url, finalInit);
+      }
+
+      return response;
+    } catch (error) {
+      // Run onError hook
+      if (hooks?.onError) {
+        await hooks.onError(error);
+      }
+      throw error;
+    }
   };
 
   const defaultHandler = async <TInput, TOutput>(
@@ -38,7 +79,7 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
       options.body = JSON.stringify(input);
     }
 
-    const response = await fetchInstance(url, options);
+    const response = await enhancedFetch(url, options);
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
@@ -52,13 +93,11 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
     return response.json();
   };
 
-  // Extract types helper - note the syntax here
   type ExtractEndpointTypes<T> = 
     T extends EndpointConfig<infer TInput, infer TOutput, any>
       ? (input: TInput) => Promise<TOutput>
       : never;
 
-  // Build client type
   type Client = {
     [K in keyof TEndpoints]: ExtractEndpointTypes<TEndpoints[K]>;
   };
@@ -74,7 +113,7 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
       if (endpoint.handler) {
         return endpoint.handler({
           input,
-          fetch: fetchInstance,
+          fetch: enhancedFetch,
           method: endpoint.method,
           path,
           baseUrl: config.baseUrl,
