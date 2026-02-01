@@ -27,6 +27,12 @@ export type Hooks = {
   onError?: (error: unknown) => Promise<void> | void;
 };
 
+export type GroupConfig = {
+  hooks?: Hooks;
+  endpoints?: EndpointDefinitions;
+  groups?: Record<string, GroupConfig>;
+};
+
 export type ApiConfig = {
     baseUrl: string;
     fetch?: typeof fetch;
@@ -34,4 +40,9 @@ export type ApiConfig = {
     hooks?: Hooks;
 };
 
-export type EndpointDefinitions = Record<string, EndpointConfig>;
+export type EndpointDefinitions = Record<string, EndpointConfig | GroupConfig>;
+
+// Type guard to check if a config is a group
+export function isGroupConfig(config: EndpointConfig | GroupConfig): config is GroupConfig {
+  return 'endpoints' in config || 'groups' in config;
+}
