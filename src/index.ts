@@ -1,4 +1,3 @@
-// index.ts
 export * from './types';
 
 import type { 
@@ -137,8 +136,7 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
 
     return response.json();
   };
-
-  // Updated type extraction
+  
   type ExtractEndpointTypes<T> = 
     T extends EndpointConfig<infer TInput, infer TOutput, any>
       ? (input: TInput) => Promise<TOutput>
@@ -147,18 +145,18 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
       : never;
 
   type ExtractGroupTypes<T extends GroupConfig> = 
-    (T['endpoints'] extends Record<string, EndpointConfig>
+  & (T extends { endpoints: infer E extends EndpointDefinitions }
       ? {
-          [K in keyof T['endpoints']]: T['endpoints'][K] extends EndpointConfig<infer TInput, infer TOutput, any>
+          [K in keyof E]: E[K] extends EndpointConfig<infer TInput, infer TOutput, any>
             ? (input: TInput) => Promise<TOutput>
+            : E[K] extends GroupConfig
+            ? ExtractGroupTypes<E[K]>
             : never
         }
-      : {}) &
-    (T['groups'] extends Record<string, GroupConfig>
+      : {})
+  & (T extends { groups: infer G extends Record<string, GroupConfig> }
       ? {
-          [K in keyof T['groups']]: T['groups'][K] extends GroupConfig
-            ? ExtractGroupTypes<T['groups'][K]>
-            : never
+          [K in keyof G]: ExtractGroupTypes<G[K]>
         }
       : {});
 
@@ -223,23 +221,8 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
   return client;
 }
 
+// Helper functions remain the same below...
 
-
-/**
- * Helper function to create a typed endpoint configuration
- * @template TInput - The input type for the endpoint
- * @template TOutput - The output/response type for the endpoint
- * @param config - The endpoint configuration
- * @returns A properly typed endpoint config
- * 
- * @example
- * ```typescript
- * const getUser = endpoint<{ id: number }, User>({
- *   method: 'GET',
- *   path: (input) => `/users/${input.id}`
- * });
- * ```
- */
 export const endpoint = <TInput = void, TOutput = any>(
   config: EndpointConfig<TInput, TOutput>
 ): EndpointConfig<TInput, TOutput> => config;
@@ -259,7 +242,7 @@ export const endpoint = <TInput = void, TOutput = any>(
  * });
  * ```
  */
-export const group = (config: GroupConfig): GroupConfig => config;
+export const group = <T extends GroupConfig>(config: T): T => config;
 
 /**
  * Convenience helper for GET requests

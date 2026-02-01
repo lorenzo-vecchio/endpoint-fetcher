@@ -40,9 +40,8 @@ export type ApiConfig = {
     hooks?: Hooks;
 };
 
-export type EndpointDefinitions = Record<string, EndpointConfig | GroupConfig>;
+export type EndpointDefinitions = Record<string, EndpointConfig<any, any> | GroupConfig>;
 
-// Type guard to check if a config is a group
 export function isGroupConfig(config: EndpointConfig | GroupConfig): config is GroupConfig {
   return 'endpoints' in config || 'groups' in config;
 }
