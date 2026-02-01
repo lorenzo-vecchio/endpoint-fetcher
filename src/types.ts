@@ -3,6 +3,7 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type EndpointConfig<TInput = any, TOutput = any, TError = any> = {
     method: HttpMethod;
     path: string | ((input: TInput) => string);
+    hooks?: Hooks;
     handler?: (params: {
         input: TInput;
         fetch: typeof fetch;

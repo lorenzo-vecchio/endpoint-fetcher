@@ -167,56 +167,57 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
   };
 
   const processEndpoints = (
-    definitions: EndpointDefinitions,
-    parentHooks: Hooks[] = []
-  ): any => {
-    const result: any = {};
+  definitions: EndpointDefinitions,
+  parentHooks: Hooks[] = []
+): any => {
+  const result: any = {};
 
-    for (const [name, definition] of Object.entries(definitions)) {
-      if (isGroupConfig(definition)) {
-        const groupHooks = [...parentHooks];
-        if (definition.hooks) {
-          groupHooks.push(definition.hooks);
-        }
-
-        result[name] = {};
-
-        if (definition.endpoints) {
-          const nestedEndpoints = processEndpoints(definition.endpoints, groupHooks);
-          Object.assign(result[name], nestedEndpoints);
-        }
-
-        if (definition.groups) {
-          const nestedGroups = processEndpoints(definition.groups, groupHooks);
-          Object.assign(result[name], nestedGroups);
-        }
-      } else {
-        const endpoint = definition as EndpointConfig;
-        const mergedHooks = mergeHooks(config.hooks, ...parentHooks);
-
-        result[name] = async (input: any) => {
-          const path = typeof endpoint.path === 'function'
-            ? endpoint.path(input)
-            : endpoint.path;
-
-          if (endpoint.handler) {
-            const enhancedFetch = createEnhancedFetch(mergedHooks);
-            return endpoint.handler({
-              input,
-              fetch: enhancedFetch,
-              method: endpoint.method,
-              path,
-              baseUrl: config.baseUrl,
-            });
-          }
-
-          return defaultHandler(endpoint.method, path, input, mergedHooks);
-        };
+  for (const [name, definition] of Object.entries(definitions)) {
+    if (isGroupConfig(definition)) {
+      const groupHooks = [...parentHooks];
+      if (definition.hooks) {
+        groupHooks.push(definition.hooks);
       }
-    }
 
-    return result;
-  };
+      result[name] = {};
+
+      if (definition.endpoints) {
+        const nestedEndpoints = processEndpoints(definition.endpoints, groupHooks);
+        Object.assign(result[name], nestedEndpoints);
+      }
+
+      if (definition.groups) {
+        const nestedGroups = processEndpoints(definition.groups, groupHooks);
+        Object.assign(result[name], nestedGroups);
+      }
+    } else {
+      const endpoint = definition as EndpointConfig;
+      // Add endpoint.hooks to the merge - it will have highest priority
+      const mergedHooks = mergeHooks(config.hooks, ...parentHooks, endpoint.hooks);
+
+      result[name] = async (input: any) => {
+        const path = typeof endpoint.path === 'function'
+          ? endpoint.path(input)
+          : endpoint.path;
+
+        if (endpoint.handler) {
+          const enhancedFetch = createEnhancedFetch(mergedHooks);
+          return endpoint.handler({
+            input,
+            fetch: enhancedFetch,
+            method: endpoint.method,
+            path,
+            baseUrl: config.baseUrl,
+          });
+        }
+
+        return defaultHandler(endpoint.method, path, input, mergedHooks);
+      };
+    }
+  }
+
+  return result;
+};
 
   const client = processEndpoints(endpoints) as Client<TEndpoints>;
 
@@ -252,6 +253,7 @@ export const group = <T extends GroupConfig>(config: T): T => config;
  * @template TOutput - The output/response type
  * @param path - URL path string or function that generates path from input
  * @param handler - Optional custom handler function
+ * @param hooks - Optional hooks specific to this GET endpoint
  * 
  * @example
  * ```typescript
@@ -264,8 +266,9 @@ export const group = <T extends GroupConfig>(config: T): T => config;
  */
 export const get = <TInput = void, TOutput = any>(
   path: string | ((input: TInput) => string),
-  handler?: EndpointConfig<TInput, TOutput>['handler']
-) => endpoint<TInput, TOutput>({ method: 'GET', path, handler });
+  handler?: EndpointConfig<TInput, TOutput>['handler'],
+  hooks?: Hooks
+) => endpoint<TInput, TOutput>({ method: 'GET', path, handler, hooks });
 
 /**
  * Convenience helper for POST requests
@@ -273,7 +276,7 @@ export const get = <TInput = void, TOutput = any>(
  * @template TOutput - The output/response type
  * @param path - URL path string or function that generates path from input
  * @param handler - Optional custom handler function
- * 
+ * @param hooks - Optional hooks specific to this POST endpoint
  * @example
  * ```typescript
  * const createPost = post<CreatePostInput, Post>('/posts');
@@ -281,8 +284,9 @@ export const get = <TInput = void, TOutput = any>(
  */
 export const post = <TInput, TOutput = any>(
   path: string | ((input: TInput) => string),
-  handler?: EndpointConfig<TInput, TOutput>['handler']
-) => endpoint<TInput, TOutput>({ method: 'POST', path, handler });
+  handler?: EndpointConfig<TInput, TOutput>['handler'],
+  hooks?: Hooks
+) => endpoint<TInput, TOutput>({ method: 'POST', path, handler, hooks });
 
 /**
  * Convenience helper for PUT requests
@@ -290,7 +294,7 @@ export const post = <TInput, TOutput = any>(
  * @template TOutput - The output/response type
  * @param path - URL path string or function that generates path from input
  * @param handler - Optional custom handler function
- * 
+ * @param hooks - Optional hooks specific to this PUT endpoint
  * @example
  * ```typescript
  * const updatePost = put<UpdatePostInput, Post>((input) => `/posts/${input.id}`);
@@ -298,8 +302,9 @@ export const post = <TInput, TOutput = any>(
  */
 export const put = <TInput, TOutput = any>(
   path: string | ((input: TInput) => string),
-  handler?: EndpointConfig<TInput, TOutput>['handler']
-) => endpoint<TInput, TOutput>({ method: 'PUT', path, handler });
+  handler?: EndpointConfig<TInput, TOutput>['handler'],
+  hooks?: Hooks
+) => endpoint<TInput, TOutput>({ method: 'PUT', path, handler, hooks });
 
 /**
  * Convenience helper for PATCH requests
@@ -307,6 +312,7 @@ export const put = <TInput, TOutput = any>(
  * @template TOutput - The output/response type
  * @param path - URL path string or function that generates path from input
  * @param handler - Optional custom handler function
+ * @param hooks - Optional hooks specific to this PATCH endpoint
  * 
  * @example
  * ```typescript
@@ -315,8 +321,9 @@ export const put = <TInput, TOutput = any>(
  */
 export const patch = <TInput, TOutput = any>(
   path: string | ((input: TInput) => string),
-  handler?: EndpointConfig<TInput, TOutput>['handler']
-) => endpoint<TInput, TOutput>({ method: 'PATCH', path, handler });
+  handler?: EndpointConfig<TInput, TOutput>['handler'],
+  hooks?: Hooks
+) => endpoint<TInput, TOutput>({ method: 'PATCH', path, handler, hooks });
 
 /**
  * Convenience helper for DELETE requests
@@ -325,6 +332,7 @@ export const patch = <TInput, TOutput = any>(
  * @template TOutput - The output/response type (often void or empty object)
  * @param path - URL path string or function that generates path from input
  * @param handler - Optional custom handler function
+ * @param hooks - Optional hooks specific to this DELETE endpoint
  * 
  * @example
  * ```typescript
@@ -333,5 +341,6 @@ export const patch = <TInput, TOutput = any>(
  */
 export const del = <TInput = void, TOutput = any>(
   path: string | ((input: TInput) => string),
-  handler?: EndpointConfig<TInput, TOutput>['handler']
-) => endpoint<TInput, TOutput>({ method: 'DELETE', path, handler });
+  handler?: EndpointConfig<TInput, TOutput>['handler'],
+  hooks?: Hooks
+) => endpoint<TInput, TOutput>({ method: 'DELETE', path, handler, hooks });
