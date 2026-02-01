@@ -223,7 +223,7 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
   return client;
 }
 
-// Helper functions remain the same below...
+// TODO: helper function do not support error type generics yet
 
 export const endpoint = <TInput = void, TOutput = any>(
   config: EndpointConfig<TInput, TOutput>
