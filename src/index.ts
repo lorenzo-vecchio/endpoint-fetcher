@@ -104,7 +104,7 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
     };
   };
 
-  const defaultHandler = async <TInput, TOutput>(
+  const defaultHandler = async <TInput, TOutput, TError = any>(
     method: HttpMethod,
     path: string,
     input: TInput,
@@ -128,12 +128,12 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
     const response = await enhancedFetch(url, options);
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+      const error = await response.json().catch(() => ({})) as TError;
       throw {
         status: response.status,
         statusText: response.statusText,
         error,
-      };
+      } as { status: number; statusText: string; error: TError };
     }
 
     return response.json();
@@ -224,11 +224,9 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
   return client;
 }
 
-// TODO: helper function do not support error type generics yet
-
-export const endpoint = <TInput = void, TOutput = any>(
-  config: EndpointConfig<TInput, TOutput>
-): EndpointConfig<TInput, TOutput> => config;
+export const endpoint = <TInput = void, TOutput = any, TError = any>(
+  config: EndpointConfig<TInput, TOutput, TError>
+): EndpointConfig<TInput, TOutput, TError> => config;
 
 /**
  * Helper function to create a typed group configuration
@@ -251,6 +249,7 @@ export const group = <T extends GroupConfig>(config: T): T => config;
  * Convenience helper for GET requests
  * @template TInput - The input type (defaults to void for no input)
  * @template TOutput - The output/response type
+ * @template TError - The error type (defaults to any)
  * @param path - URL path string or function that generates path from input
  * @param handler - Optional custom handler function
  * @param hooks - Optional hooks specific to this GET endpoint
@@ -262,54 +261,66 @@ export const group = <T extends GroupConfig>(config: T): T => config;
  * 
  * // GET with path parameters
  * const getPost = get<{ id: number }, Post>((input) => `/posts/${input.id}`);
+ * 
+ * // GET with custom error type
+ * const getPostWithError = get<{ id: number }, Post, ApiError>((input) => `/posts/${input.id}`);
  * ```
  */
-export const get = <TInput = void, TOutput = any>(
+export const get = <TInput = void, TOutput = any, TError = any>(
   path: string | ((input: TInput) => string),
-  handler?: EndpointConfig<TInput, TOutput>['handler'],
+  handler?: EndpointConfig<TInput, TOutput, TError>['handler'],
   hooks?: Hooks
-) => endpoint<TInput, TOutput>({ method: 'GET', path, handler, hooks });
+) => endpoint<TInput, TOutput, TError>({ method: 'GET', path, handler, hooks });
 
 /**
  * Convenience helper for POST requests
  * @template TInput - The input/body type
  * @template TOutput - The output/response type
+ * @template TError - The error type (defaults to any)
  * @param path - URL path string or function that generates path from input
  * @param handler - Optional custom handler function
  * @param hooks - Optional hooks specific to this POST endpoint
  * @example
  * ```typescript
  * const createPost = post<CreatePostInput, Post>('/posts');
+ * 
+ * // POST with custom error type
+ * const createPostWithError = post<CreatePostInput, Post, ValidationError>('/posts');
  * ```
  */
-export const post = <TInput, TOutput = any>(
+export const post = <TInput, TOutput = any, TError = any>(
   path: string | ((input: TInput) => string),
-  handler?: EndpointConfig<TInput, TOutput>['handler'],
+  handler?: EndpointConfig<TInput, TOutput, TError>['handler'],
   hooks?: Hooks
-) => endpoint<TInput, TOutput>({ method: 'POST', path, handler, hooks });
+) => endpoint<TInput, TOutput, TError>({ method: 'POST', path, handler, hooks });
 
 /**
  * Convenience helper for PUT requests
  * @template TInput - The input/body type
  * @template TOutput - The output/response type
+ * @template TError - The error type (defaults to any)
  * @param path - URL path string or function that generates path from input
  * @param handler - Optional custom handler function
  * @param hooks - Optional hooks specific to this PUT endpoint
  * @example
  * ```typescript
  * const updatePost = put<UpdatePostInput, Post>((input) => `/posts/${input.id}`);
+ * 
+ * // PUT with custom error type
+ * const updatePostWithError = put<UpdatePostInput, Post, ApiError>((input) => `/posts/${input.id}`);
  * ```
  */
-export const put = <TInput, TOutput = any>(
+export const put = <TInput, TOutput = any, TError = any>(
   path: string | ((input: TInput) => string),
-  handler?: EndpointConfig<TInput, TOutput>['handler'],
+  handler?: EndpointConfig<TInput, TOutput, TError>['handler'],
   hooks?: Hooks
-) => endpoint<TInput, TOutput>({ method: 'PUT', path, handler, hooks });
+) => endpoint<TInput, TOutput, TError>({ method: 'PUT', path, handler, hooks });
 
 /**
  * Convenience helper for PATCH requests
  * @template TInput - The input/body type
  * @template TOutput - The output/response type
+ * @template TError - The error type (defaults to any)
  * @param path - URL path string or function that generates path from input
  * @param handler - Optional custom handler function
  * @param hooks - Optional hooks specific to this PATCH endpoint
@@ -317,19 +328,23 @@ export const put = <TInput, TOutput = any>(
  * @example
  * ```typescript
  * const patchPost = patch<Partial<Post>, Post>((input) => `/posts/${input.id}`);
+ * 
+ * // PATCH with custom error type
+ * const patchPostWithError = patch<Partial<Post>, Post, ValidationError>((input) => `/posts/${input.id}`);
  * ```
  */
-export const patch = <TInput, TOutput = any>(
+export const patch = <TInput, TOutput = any, TError = any>(
   path: string | ((input: TInput) => string),
-  handler?: EndpointConfig<TInput, TOutput>['handler'],
+  handler?: EndpointConfig<TInput, TOutput, TError>['handler'],
   hooks?: Hooks
-) => endpoint<TInput, TOutput>({ method: 'PATCH', path, handler, hooks });
+) => endpoint<TInput, TOutput, TError>({ method: 'PATCH', path, handler, hooks });
 
 /**
  * Convenience helper for DELETE requests
  * Named 'del' to avoid conflict with JavaScript's delete keyword
  * @template TInput - The input type (usually contains ID)
  * @template TOutput - The output/response type (often void or empty object)
+ * @template TError - The error type (defaults to any)
  * @param path - URL path string or function that generates path from input
  * @param handler - Optional custom handler function
  * @param hooks - Optional hooks specific to this DELETE endpoint
@@ -337,10 +352,13 @@ export const patch = <TInput, TOutput = any>(
  * @example
  * ```typescript
  * const deletePost = del<{ id: number }, void>((input) => `/posts/${input.id}`);
+ * 
+ * // DELETE with custom error type
+ * const deletePostWithError = del<{ id: number }, void, ApiError>((input) => `/posts/${input.id}`);
  * ```
  */
-export const del = <TInput = void, TOutput = any>(
+export const del = <TInput = void, TOutput = any, TError = any>(
   path: string | ((input: TInput) => string),
-  handler?: EndpointConfig<TInput, TOutput>['handler'],
+  handler?: EndpointConfig<TInput, TOutput, TError>['handler'],
   hooks?: Hooks
-) => endpoint<TInput, TOutput>({ method: 'DELETE', path, handler, hooks });
+) => endpoint<TInput, TOutput, TError>({ method: 'DELETE', path, handler, hooks });
