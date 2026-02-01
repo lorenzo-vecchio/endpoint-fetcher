@@ -1,9 +1,9 @@
 export * from './types';
 
-import type { 
-  HttpMethod, 
-  EndpointConfig, 
-  ApiConfig, 
+import type {
+  HttpMethod,
+  EndpointConfig,
+  ApiConfig,
   EndpointDefinitions,
   Hooks,
   GroupConfig
@@ -22,18 +22,20 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
     return `${normalizedBase}${normalizedPath}`;
   };
 
-  // Merge hooks with priority: endpoint > group > global
+  // Merge hooks with priority: global -> group -> endpoint for beforeRequest
+  // and endpoint -> group -> global for afterResponse (reverse order)
   const mergeHooks = (...hooksList: (Hooks | undefined)[]): Hooks => {
     const merged: Hooks = {};
-    
+
     const beforeRequestHooks = hooksList
       .filter((h): h is Hooks => !!h?.beforeRequest)
       .map(h => h.beforeRequest!);
-    
+
     const afterResponseHooks = hooksList
       .filter((h): h is Hooks => !!h?.afterResponse)
-      .map(h => h.afterResponse!);
-    
+      .map(h => h.afterResponse!)
+      .reverse(); // Reverse to maintain correct order
+
     const onErrorHooks = hooksList
       .filter((h): h is Hooks => !!h?.onError)
       .map(h => h.onError!);
@@ -71,12 +73,12 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
 
   const createEnhancedFetch = (hooks: Hooks) => {
     return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      let url = typeof input === 'string' 
-        ? input 
-        : input instanceof URL 
-        ? input.toString() 
-        : input.url;
-      
+      let url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
       let finalInit = { ...init };
 
       if (hooks.beforeRequest) {
@@ -109,7 +111,7 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
     hooks: Hooks
   ): Promise<TOutput> => {
     const url = buildUrl(path, config.baseUrl);
-    
+
     const options: RequestInit = {
       method,
       headers: {
@@ -136,28 +138,28 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
 
     return response.json();
   };
-  
-  type ExtractEndpointTypes<T> = 
-    T extends EndpointConfig<infer TInput, infer TOutput, any>
-      ? (input: TInput) => Promise<TOutput>
-      : T extends GroupConfig
-      ? ExtractGroupTypes<T>
-      : never;
 
-  type ExtractGroupTypes<T extends GroupConfig> = 
-  & (T extends { endpoints: infer E extends EndpointDefinitions }
+  type ExtractEndpointTypes<T> =
+    T extends EndpointConfig<infer TInput, infer TOutput, any>
+    ? (input: TInput) => Promise<TOutput>
+    : T extends GroupConfig
+    ? ExtractGroupTypes<T>
+    : never;
+
+  type ExtractGroupTypes<T extends GroupConfig> =
+    & (T extends { endpoints: infer E extends EndpointDefinitions }
       ? {
-          [K in keyof E]: E[K] extends EndpointConfig<infer TInput, infer TOutput, any>
-            ? (input: TInput) => Promise<TOutput>
-            : E[K] extends GroupConfig
-            ? ExtractGroupTypes<E[K]>
-            : never
-        }
+        [K in keyof E]: E[K] extends EndpointConfig<infer TInput, infer TOutput, any>
+        ? (input: TInput) => Promise<TOutput>
+        : E[K] extends GroupConfig
+        ? ExtractGroupTypes<E[K]>
+        : never
+      }
       : {})
-  & (T extends { groups: infer G extends Record<string, GroupConfig> }
+    & (T extends { groups: infer G extends Record<string, GroupConfig> }
       ? {
-          [K in keyof G]: ExtractGroupTypes<G[K]>
-        }
+        [K in keyof G]: ExtractGroupTypes<G[K]>
+      }
       : {});
 
   type Client<T extends EndpointDefinitions> = {
@@ -193,8 +195,8 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
         const mergedHooks = mergeHooks(config.hooks, ...parentHooks);
 
         result[name] = async (input: any) => {
-          const path = typeof endpoint.path === 'function' 
-            ? endpoint.path(input) 
+          const path = typeof endpoint.path === 'function'
+            ? endpoint.path(input)
             : endpoint.path;
 
           if (endpoint.handler) {
