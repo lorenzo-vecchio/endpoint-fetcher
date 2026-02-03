@@ -2,7 +2,7 @@
  * API Client Library
  * 
  * A type-safe, flexible API client with support for hooks,
- * grouped endpoints, and custom handlers.
+ * grouped endpoints, custom handlers, and plugins.
  */
 
 // Export all types
@@ -12,7 +12,8 @@ export type {
   Hooks,
   GroupConfig,
   ApiConfig,
-  EndpointDefinitions
+  EndpointDefinitions,
+  PluginOptions
 } from './types';
 
 export { isGroupConfig } from './types';
@@ -30,6 +31,13 @@ export {
   patch,
   del
 } from './helpers';
+
+// Export plugin utilities
+export {
+  createPlugin,
+  type Plugin,
+  type PluginConfig
+} from './plugin';
 
 // Export utilities (in case users need them)
 export {
