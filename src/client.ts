@@ -4,7 +4,8 @@ import type {
   ApiConfig,
   EndpointDefinitions,
   GroupConfig,
-  Hooks
+  Hooks,
+  PluginOptions
 } from './types';
 import { isGroupConfig } from './types';
 import { buildUrl, mergeHooks, createEnhancedFetch } from './utils';
@@ -50,13 +51,50 @@ async function defaultHandler<TInput, TOutput, TError = any>(
 }
 
 /**
+ * Apply plugin handler wrappers to a handler function
+ */
+function applyHandlerWrappers<TInput, TOutput, TError>(
+  baseHandler: (
+    input: TInput,
+    context: {
+      fetch: typeof fetch;
+      method: HttpMethod;
+      path: string;
+      baseUrl: string;
+    }
+  ) => Promise<TOutput>,
+  plugins: PluginOptions[],
+  endpoint: EndpointConfig<TInput, TOutput, TError>
+): (
+  input: TInput,
+  context: {
+    fetch: typeof fetch;
+    method: HttpMethod;
+    path: string;
+    baseUrl: string;
+  }
+) => Promise<TOutput> {
+  let wrappedHandler = baseHandler;
+  
+  // Apply plugin wrappers in order (first plugin wraps innermost)
+  for (const plugin of plugins) {
+    if (plugin.handlerWrapper) {
+      wrappedHandler = plugin.handlerWrapper(wrappedHandler, endpoint);
+    }
+  }
+  
+  return wrappedHandler;
+}
+
+/**
  * Process endpoint definitions and create the client methods
  */
 function processEndpoints(
   definitions: EndpointDefinitions,
   config: ApiConfig,
   fetchInstance: typeof fetch,
-  parentHooks: Hooks[] = []
+  parentHooks: Hooks[] = [],
+  plugins: PluginOptions[] = []
 ): any {
   const result: any = {};
 
@@ -74,7 +112,8 @@ function processEndpoints(
           definition.endpoints,
           config,
           fetchInstance,
-          groupHooks
+          groupHooks,
+          plugins
         );
         Object.assign(result[name], nestedEndpoints);
       }
@@ -84,38 +123,72 @@ function processEndpoints(
           definition.groups,
           config,
           fetchInstance,
-          groupHooks
+          groupHooks,
+          plugins
         );
         Object.assign(result[name], nestedGroups);
       }
     } else {
       const endpoint = definition as EndpointConfig;
-      const mergedHooks = mergeHooks(config.hooks, ...parentHooks, endpoint.hooks);
+      
+      // Collect hooks from plugins
+      const pluginHooks = plugins.map(p => p.hooks).filter(Boolean) as Hooks[];
+      
+      // Merge hooks in order: plugin -> global -> group -> endpoint
+      const mergedHooks = mergeHooks(...pluginHooks, config.hooks, ...parentHooks, endpoint.hooks);
 
       result[name] = async (input: any) => {
         const path = typeof endpoint.path === 'function'
           ? endpoint.path(input)
           : endpoint.path;
 
+        // Create the base handler (either custom or default)
+        let baseHandler: (
+          input: any,
+          context: {
+            fetch: typeof fetch;
+            method: HttpMethod;
+            path: string;
+            baseUrl: string;
+          }
+        ) => Promise<any>;
+
         if (endpoint.handler) {
-          const enhancedFetch = createEnhancedFetch(fetchInstance, mergedHooks);
-          return endpoint.handler({
-            input,
-            fetch: enhancedFetch,
-            method: endpoint.method,
-            path,
-            baseUrl: config.baseUrl,
-          });
+          // Use custom handler
+          baseHandler = async (input, context) => {
+            return endpoint.handler!({
+              input,
+              fetch: context.fetch,
+              method: context.method,
+              path: context.path,
+              baseUrl: context.baseUrl,
+            });
+          };
+        } else {
+          // Use default handler
+          baseHandler = async (input, context) => {
+            return defaultHandler(
+              context.method,
+              context.path,
+              input,
+              mergedHooks,
+              config,
+              context.fetch
+            );
+          };
         }
 
-        return defaultHandler(
-          endpoint.method,
+        // Apply plugin handler wrappers
+        const wrappedHandler = applyHandlerWrappers(baseHandler, plugins, endpoint);
+
+        // Execute the wrapped handler
+        const enhancedFetch = createEnhancedFetch(fetchInstance, mergedHooks);
+        return wrappedHandler(input, {
+          fetch: enhancedFetch,
+          method: endpoint.method,
           path,
-          input,
-          mergedHooks,
-          config,
-          fetchInstance
-        );
+          baseUrl: config.baseUrl,
+        });
       };
     }
   }
@@ -168,6 +241,10 @@ type Client<T extends EndpointDefinitions> = {
  * 
  * @example
  * ```typescript
+ * import { createApiClient } from './client';
+ * import { authPlugin } from './plugins/auth';
+ * import { retryPlugin } from './plugins/retry';
+ * 
  * const api = createApiClient({
  *   users: {
  *     endpoints: {
@@ -176,7 +253,11 @@ type Client<T extends EndpointDefinitions> = {
  *     }
  *   }
  * }, {
- *   baseUrl: 'https://api.example.com'
+ *   baseUrl: 'https://api.example.com',
+ *   plugins: [
+ *     authPlugin({ token: 'my-token' }),
+ *     retryPlugin({ maxRetries: 3 })
+ *   ]
  * });
  * 
  * // Usage
@@ -189,6 +270,13 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
   config: ApiConfig
 ) {
   const fetchInstance = config.fetch ?? globalThis.fetch;
-  const client = processEndpoints(endpoints, config, fetchInstance) as Client<TEndpoints>;
+  const plugins = config.plugins ?? [];
+  const client = processEndpoints(
+    endpoints,
+    config,
+    fetchInstance,
+    [],
+    plugins
+  ) as Client<TEndpoints>;
   return client;
 }

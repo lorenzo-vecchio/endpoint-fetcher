@@ -47,6 +47,33 @@ export type GroupConfig = {
 };
 
 /**
+ * Plugin options returned by plugin factory functions
+ */
+export type PluginOptions = {
+  hooks?: Hooks;
+  handlerWrapper?: <TInput, TOutput, TError>(
+    originalHandler: (
+      input: TInput,
+      context: {
+        fetch: typeof fetch;
+        method: HttpMethod;
+        path: string;
+        baseUrl: string;
+      }
+    ) => Promise<TOutput>,
+    endpoint: EndpointConfig<TInput, TOutput, TError>
+  ) => (
+    input: TInput,
+    context: {
+      fetch: typeof fetch;
+      method: HttpMethod;
+      path: string;
+      baseUrl: string;
+    }
+  ) => Promise<TOutput>;
+};
+
+/**
  * Configuration for the API client
  */
 export type ApiConfig = {
@@ -54,6 +81,7 @@ export type ApiConfig = {
   fetch?: typeof fetch;
   defaultHeaders?: HeadersInit;
   hooks?: Hooks;
+  plugins?: PluginOptions[];
 };
 
 /**
