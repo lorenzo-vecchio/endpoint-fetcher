@@ -44,7 +44,7 @@
   "bugs": {
     "url": "https://github.com/lorenzo-vecchio/endpoint-fetcher/issues"
   },
-  "homepage": "https://github.com/lorenzo-vecchio/endpoint-fetcher#readme",
+  "homepage": "https://endpoint-fetcher.lorenzovecchio.dev",
   "engines": {
     "node": ">=16.0.0"
   },
