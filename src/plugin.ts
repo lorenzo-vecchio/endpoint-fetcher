@@ -5,21 +5,27 @@ import type { Hooks, EndpointConfig, PluginOptions, HttpMethod } from './types';
  * Plugins export a function that takes configuration and returns PluginOptions
  */
 export type Plugin<
+  TName extends string = string,
   TConfig = void,
   TMethods extends Record<string, (...args: any[]) => any> = {}
 > = TConfig extends void
-  ? () => PluginOptions<TMethods>
-  : (config: TConfig) => PluginOptions<TMethods>;
+  ? () => PluginOptions<TName, TMethods>
+  : (config: TConfig) => PluginOptions<TName, TMethods>;
+
+/**
+ * Type helper to extract plugin name type
+ */
+export type PluginName<T> = T extends Plugin<infer TName, any, any> ? TName : never;
 
 /**
  * Type helper to extract plugin config type
  */
-export type PluginConfig<T> = T extends Plugin<infer TConfig, any> ? TConfig : never;
+export type PluginConfig<T> = T extends Plugin<any, infer TConfig, any> ? TConfig : never;
 
 /**
  * Type helper to extract plugin methods type
  */
-export type PluginMethods<T> = T extends Plugin<any, infer TMethods> ? TMethods : {};
+export type PluginMethods<T> = T extends Plugin<any, any, infer TMethods> ? TMethods : {};
 
 /**
  * Creates a plugin with proper typing
@@ -107,12 +113,17 @@ export type PluginMethods<T> = T extends Plugin<any, infer TMethods> ? TMethods 
  * ```
  */
 export function createPlugin<
+  const TName extends string,
   TConfig = void,
   const TMethods extends Record<string, (...args: any[]) => any> = {}
 >(
+  name: TName,
   factory: TConfig extends void
-    ? () => PluginOptions<TMethods>
-    : (config: TConfig) => PluginOptions<TMethods>
-): Plugin<TConfig, TMethods> {
-  return factory as Plugin<TConfig, TMethods>;
+    ? () => Omit<PluginOptions<TName, TMethods>, 'name'>
+    : (config: TConfig) => Omit<PluginOptions<TName, TMethods>, 'name'>
+): Plugin<TName, TConfig, TMethods> {
+  return ((config?: TConfig) => {
+    const options = factory(config as any);
+    return { ...options, name };
+  }) as unknown as Plugin<TName, TConfig, TMethods>;
 }

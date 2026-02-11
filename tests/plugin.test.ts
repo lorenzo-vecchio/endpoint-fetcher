@@ -6,7 +6,7 @@ import { createMockFetch, createMockFetchSequence } from './mock-fetch';
 
 describe('createPlugin', () => {
   it('creates plugin without config', () => {
-    const plugin = createPlugin(() => ({
+    const plugin = createPlugin('test', () => ({
       hooks: {
         beforeRequest: async (url: string, init: RequestInit) => ({ url, init }),
       },
@@ -15,10 +15,11 @@ describe('createPlugin', () => {
     const options = plugin();
     expect(options.hooks).toBeDefined();
     expect(options.hooks!.beforeRequest).toBeDefined();
+    expect(options.name).toBe('test');
   });
 
   it('creates plugin with config', () => {
-    const plugin = createPlugin((config: { token: string }) => ({
+    const plugin = createPlugin('auth', (config: { token: string }) => ({
       hooks: {
         beforeRequest: async (url: string, init: RequestInit) => {
           const headers = new Headers(init.headers);
@@ -30,12 +31,13 @@ describe('createPlugin', () => {
 
     const options = plugin({ token: 'my-secret' });
     expect(options.hooks).toBeDefined();
+    expect(options.name).toBe('auth');
   });
 });
 
 describe('plugin hooks integration', () => {
   it('plugin beforeRequest hook modifies headers', async () => {
-    const authPlugin = createPlugin((config: { token: string }) => ({
+    const authPlugin = createPlugin('auth', (config: { token: string }) => ({
       hooks: {
         beforeRequest: async (url: string, init: RequestInit) => {
           const headers = new Headers(init.headers);
@@ -65,7 +67,7 @@ describe('plugin hooks integration', () => {
 describe('plugin handler wrappers', () => {
   it('wraps the default handler', async () => {
     const wrapperFn = vi.fn();
-    const wrapperPlugin = createPlugin(() => ({
+    const wrapperPlugin = createPlugin('wrapper', () => ({
       handlerWrapper: (originalHandler) => {
         return async (input: any, context: any) => {
           wrapperFn();
@@ -91,7 +93,7 @@ describe('plugin handler wrappers', () => {
 
   it('wraps custom handlers', async () => {
     const wrapperFn = vi.fn();
-    const wrapperPlugin = createPlugin(() => ({
+    const wrapperPlugin = createPlugin('wrapper', () => ({
       handlerWrapper: (originalHandler) => {
         return async (input: any, context: any) => {
           wrapperFn();
@@ -126,7 +128,7 @@ describe('plugin handler wrappers', () => {
   it('composes multiple handler wrappers (first plugin wraps innermost)', async () => {
     const order: string[] = [];
 
-    const pluginA = createPlugin(() => ({
+    const pluginA = createPlugin('pluginA', () => ({
       handlerWrapper: (originalHandler) => {
         return async (input: any, context: any) => {
           order.push('A-before');
@@ -137,7 +139,7 @@ describe('plugin handler wrappers', () => {
       },
     }));
 
-    const pluginB = createPlugin(() => ({
+    const pluginB = createPlugin('pluginB', () => ({
       handlerWrapper: (originalHandler) => {
         return async (input: any, context: any) => {
           order.push('B-before');
@@ -168,7 +170,7 @@ describe('plugin handler wrappers', () => {
     const hookFn = vi.fn(async (url: string, init: RequestInit) => ({ url, init }));
     const wrapperFn = vi.fn();
 
-    const dualPlugin = createPlugin(() => ({
+    const dualPlugin = createPlugin('dual', () => ({
       hooks: { beforeRequest: hookFn },
       handlerWrapper: (originalHandler) => {
         return async (input: any, context: any) => {
@@ -194,7 +196,7 @@ describe('plugin handler wrappers', () => {
   });
 
   it('retry-style handler wrapper retries on failure', async () => {
-    const retryPlugin = createPlugin((config: { maxRetries: number }) => ({
+    const retryPlugin = createPlugin('retry', (config: { maxRetries: number }) => ({
       handlerWrapper: (originalHandler) => {
         return async (input: any, context: any) => {
           let lastError;

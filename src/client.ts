@@ -231,9 +231,9 @@ type ExtractGroupTypes<T extends GroupConfig> =
  */
 type Client<T extends EndpointDefinitions, TPluginMethods = {}> = {
   [K in keyof T]: ExtractEndpointTypes<T[K]>;
-} & (keyof TPluginMethods extends never
-  ? {}
-  : { plugins: TPluginMethods });
+} & (TPluginMethods extends Record<string, any>
+  ? { plugins: TPluginMethods }
+  : {});
 
 /**
  * Creates a typed API client from endpoint definitions
@@ -285,11 +285,34 @@ export function createApiClient<
     [...plugins] as PluginOptions[]
   ) as any;
 
-  // Collect methods from all plugins and merge into a single object
-  const pluginMethods: Record<string, (...args: any[]) => any> = {};
-  for (const plugin of plugins) {
+  // Collect methods from all plugins and group by plugin name
+  const pluginMethods: Record<string, Record<string, (...args: any[]) => any>> = {};
+  const usedNames = new Set<string>();
+  
+  for (let i = 0; i < plugins.length; i++) {
+    const plugin = plugins[i];
     if (plugin.methods) {
-      Object.assign(pluginMethods, plugin.methods);
+      const pluginName = plugin.name;
+      
+      // Check for duplicate names
+      if (usedNames.has(pluginName)) {
+        // Find all plugins that have this name (including current one)
+        const duplicateIndices: number[] = [];
+        for (let j = 0; j <= i; j++) {
+          const otherPlugin = plugins[j];
+          if (otherPlugin.name === pluginName) {
+            duplicateIndices.push(j);
+          }
+        }
+        
+        throw new Error(
+          `Duplicate plugin name: "${pluginName}". Plugin names must be unique. ` +
+          `Plugins at indices ${duplicateIndices.join(', ')} have the same name.`
+        );
+      }
+      
+      usedNames.add(pluginName);
+      pluginMethods[pluginName] = plugin.methods;
     }
   }
 

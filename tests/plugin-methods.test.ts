@@ -5,8 +5,8 @@ import { get } from '../src/helpers';
 import { createMockFetch } from './mock-fetch';
 
 describe('plugin methods', () => {
-  it('exposes plugin methods on client.plugins', () => {
-    const myPlugin = createPlugin(() => ({
+  it('exposes plugin methods grouped by plugin name', () => {
+    const myPlugin = createPlugin('myPlugin', () => ({
       methods: {
         greet: (name: string) => `Hello ${name}`,
       },
@@ -23,11 +23,12 @@ describe('plugin methods', () => {
     );
 
     expect(client.plugins).toBeDefined();
-    expect(typeof client.plugins.greet).toBe('function');
+    expect(client.plugins.myPlugin).toBeDefined();
+    expect(typeof client.plugins.myPlugin.greet).toBe('function');
   });
 
   it('plugin method returns expected value', () => {
-    const myPlugin = createPlugin(() => ({
+    const myPlugin = createPlugin('myPlugin', () => ({
       methods: {
         add: (a: number, b: number) => a + b,
       },
@@ -43,17 +44,17 @@ describe('plugin methods', () => {
       }
     );
 
-    expect(client.plugins.add(2, 3)).toBe(5);
+    expect(client.plugins.myPlugin.add(2, 3)).toBe(5);
   });
 
-  it('merges methods from multiple plugins', () => {
-    const pluginA = createPlugin(() => ({
+  it('groups methods from multiple plugins separately', () => {
+    const pluginA = createPlugin('pluginA', () => ({
       methods: {
         foo: () => 'from-a',
       },
     }));
 
-    const pluginB = createPlugin(() => ({
+    const pluginB = createPlugin('pluginB', () => ({
       methods: {
         bar: (x: number) => x * 2,
       },
@@ -69,12 +70,12 @@ describe('plugin methods', () => {
       }
     );
 
-    expect(client.plugins.foo()).toBe('from-a');
-    expect(client.plugins.bar(5)).toBe(10);
+    expect(client.plugins.pluginA.foo()).toBe('from-a');
+    expect(client.plugins.pluginB.bar(5)).toBe(10);
   });
 
   it('does not add plugins property when no plugins have methods', () => {
-    const hookOnlyPlugin = createPlugin(() => ({
+    const hookOnlyPlugin = createPlugin('hookOnly', () => ({
       hooks: {
         beforeRequest: async (url: string, init: RequestInit) => ({ url, init }),
       },
@@ -107,7 +108,7 @@ describe('plugin methods', () => {
   });
 
   it('plugin methods can use closure over plugin config', () => {
-    const configPlugin = createPlugin((config: { prefix: string }) => ({
+    const configPlugin = createPlugin('config', (config: { prefix: string }) => ({
       methods: {
         format: (text: string) => `${config.prefix}: ${text}`,
       },
@@ -123,13 +124,13 @@ describe('plugin methods', () => {
       }
     );
 
-    expect(client.plugins.format('hello')).toBe('LOG: hello');
+    expect(client.plugins.config.format('hello')).toBe('LOG: hello');
   });
 
   it('plugin with methods and hooks coexist', async () => {
     const hookFn = vi.fn(async (url: string, init: RequestInit) => ({ url, init }));
 
-    const dualPlugin = createPlugin(() => ({
+    const dualPlugin = createPlugin('dual', () => ({
       hooks: { beforeRequest: hookFn },
       methods: {
         getStatus: () => 'active',
@@ -147,21 +148,21 @@ describe('plugin methods', () => {
     );
 
     // Methods work
-    expect(client.plugins.getStatus()).toBe('active');
+    expect(client.plugins.dual.getStatus()).toBe('active');
 
     // Hooks still work
     await client.test(undefined as void);
     expect(hookFn).toHaveBeenCalled();
   });
 
-  it('later plugin methods override earlier ones with same name', () => {
-    const pluginA = createPlugin(() => ({
+  it('methods with same name in different plugins are kept separate', () => {
+    const pluginA = createPlugin('pluginA', () => ({
       methods: {
         shared: () => 'from-a',
       },
     }));
 
-    const pluginB = createPlugin(() => ({
+    const pluginB = createPlugin('pluginB', () => ({
       methods: {
         shared: () => 'from-b',
       },
@@ -177,12 +178,13 @@ describe('plugin methods', () => {
       }
     );
 
-    // Object.assign behavior: last plugin wins
-    expect((client.plugins as any).shared()).toBe('from-b');
+    // Methods are now grouped by plugin, so both can coexist
+    expect(client.plugins.pluginA.shared()).toBe('from-a');
+    expect(client.plugins.pluginB.shared()).toBe('from-b');
   });
 
   it('plugin methods work alongside normal endpoint calls', async () => {
-    const myPlugin = createPlugin(() => ({
+    const myPlugin = createPlugin('myPlugin', () => ({
       methods: {
         getVersion: () => '1.0.0',
       },
@@ -199,7 +201,7 @@ describe('plugin methods', () => {
     );
 
     // Plugin method works
-    expect(client.plugins.getVersion()).toBe('1.0.0');
+    expect(client.plugins.myPlugin.getVersion()).toBe('1.0.0');
 
     // Endpoint still works
     const users = await client.users(undefined as void);
@@ -207,7 +209,7 @@ describe('plugin methods', () => {
   });
 
   it('async plugin methods work correctly', async () => {
-    const asyncPlugin = createPlugin(() => ({
+    const asyncPlugin = createPlugin('asyncPlugin', () => ({
       methods: {
         fetchData: async () => ({ result: 42 }),
       },
@@ -223,14 +225,14 @@ describe('plugin methods', () => {
       }
     );
 
-    const data = await client.plugins.fetchData();
+    const data = await client.plugins.asyncPlugin.fetchData();
     expect(data).toEqual({ result: 42 });
   });
 });
 
 describe('plugin methods type-level tests', () => {
   it('infers plugin method types correctly', () => {
-    const myPlugin = createPlugin(() => ({
+    const myPlugin = createPlugin('myPlugin', () => ({
       methods: {
         greet: (name: string) => `Hello ${name}`,
         add: (a: number, b: number) => a + b,
@@ -247,17 +249,17 @@ describe('plugin methods type-level tests', () => {
       }
     );
 
-    expectTypeOf(client.plugins.greet).toBeFunction();
-    expectTypeOf(client.plugins.add).toBeFunction();
-    expectTypeOf(client.plugins.greet('test')).toBeString();
-    expectTypeOf(client.plugins.add(1, 2)).toBeNumber();
+    expectTypeOf(client.plugins.myPlugin.greet).toBeFunction();
+    expectTypeOf(client.plugins.myPlugin.add).toBeFunction();
+    expectTypeOf(client.plugins.myPlugin.greet('test')).toBeString();
+    expectTypeOf(client.plugins.myPlugin.add(1, 2)).toBeNumber();
   });
 
   it('merges method types from multiple plugins', () => {
-    const pluginA = createPlugin(() => ({
+    const pluginA = createPlugin('pluginA', () => ({
       methods: { foo: () => 'a' as const },
     }));
-    const pluginB = createPlugin(() => ({
+    const pluginB = createPlugin('pluginB', () => ({
       methods: { bar: (x: number) => x * 2 },
     }));
 
@@ -271,13 +273,13 @@ describe('plugin methods type-level tests', () => {
       }
     );
 
-    expectTypeOf(client.plugins.foo).toBeFunction();
-    expectTypeOf(client.plugins.bar).toBeFunction();
-    expectTypeOf(client.plugins.bar(5)).toBeNumber();
+    expectTypeOf(client.plugins.pluginA.foo).toBeFunction();
+    expectTypeOf(client.plugins.pluginB.bar).toBeFunction();
+    expectTypeOf(client.plugins.pluginB.bar(5)).toBeNumber();
   });
 
   it('endpoint types are preserved alongside plugin methods', () => {
-    const myPlugin = createPlugin(() => ({
+    const myPlugin = createPlugin('myPlugin', () => ({
       methods: { version: () => '1.0' },
     }));
 
@@ -296,6 +298,107 @@ describe('plugin methods type-level tests', () => {
 
     expectTypeOf(client.getUsers).toBeFunction();
     expectTypeOf(client.createUser).toBeFunction();
-    expectTypeOf(client.plugins.version).toBeFunction();
+    expectTypeOf(client.plugins.myPlugin.version).toBeFunction();
+  });
+});
+
+describe('named plugins', () => {
+  it('groups methods by plugin name', () => {
+    const metricsPlugin = createPlugin('metrics', () => ({
+      methods: {
+        getMetrics: () => 'data',
+        reset: () => true,
+      },
+    }));
+
+    const mockFetch = createMockFetch({ body: [] });
+    const client = createApiClient(
+      { test: get<void, any>('/test') },
+      {
+        baseUrl: 'https://api.example.com',
+        fetch: mockFetch,
+        plugins: [metricsPlugin()],
+      }
+    );
+
+    expect(client.plugins.metrics).toBeDefined();
+    expect(typeof client.plugins.metrics.getMetrics).toBe('function');
+    expect(typeof client.plugins.metrics.reset).toBe('function');
+    expect(client.plugins.metrics.getMetrics()).toBe('data');
+    expect(client.plugins.metrics.reset()).toBe(true);
+  });
+
+  it('works with multiple plugins', () => {
+    const authPlugin = createPlugin('auth', () => ({
+      methods: { login: () => 'logged-in' },
+    }));
+
+    const helperPlugin = createPlugin('helper', () => ({
+      methods: { helper: () => 'help' },
+    }));
+
+    const mockFetch = createMockFetch({ body: [] });
+    const client = createApiClient(
+      { test: get<void, any>('/test') },
+      {
+        baseUrl: 'https://api.example.com',
+        fetch: mockFetch,
+        plugins: [authPlugin(), helperPlugin()],
+      }
+    );
+
+    expect(client.plugins.auth.login()).toBe('logged-in');
+    expect(client.plugins.helper.helper()).toBe('help');
+  });
+
+  it('throws error on duplicate plugin names', () => {
+    const plugin1 = createPlugin('cache', () => ({
+      methods: { get: () => 'data1' },
+    }));
+
+    const plugin2 = createPlugin('cache', () => ({
+      methods: { set: () => true },
+    }));
+
+    const mockFetch = createMockFetch({ body: [] });
+    
+    expect(() => {
+      createApiClient(
+        { test: get<void, any>('/test') },
+        {
+          baseUrl: 'https://api.example.com',
+          fetch: mockFetch,
+          plugins: [plugin1(), plugin2()],
+        }
+      );
+    }).toThrow('Duplicate plugin name: "cache"');
+  });
+
+  it('preserves plugin order', () => {
+    const plugin1 = createPlugin('plugin1', () => ({
+      methods: { a: () => 'a' },
+    }));
+
+    const plugin2 = createPlugin('plugin2', () => ({
+      methods: { b: () => 'b' },
+    }));
+
+    const plugin3 = createPlugin('plugin3', () => ({
+      methods: { c: () => 'c' },
+    }));
+
+    const mockFetch = createMockFetch({ body: [] });
+    const client = createApiClient(
+      { test: get<void, any>('/test') },
+      {
+        baseUrl: 'https://api.example.com',
+        fetch: mockFetch,
+        plugins: [plugin1(), plugin2(), plugin3()],
+      }
+    );
+
+    expect(client.plugins.plugin1.a()).toBe('a');
+    expect(client.plugins.plugin2.b()).toBe('b');
+    expect(client.plugins.plugin3.c()).toBe('c');
   });
 });

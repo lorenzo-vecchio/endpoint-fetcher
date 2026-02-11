@@ -50,8 +50,10 @@ export type GroupConfig = {
  * Plugin options returned by plugin factory functions
  */
 export type PluginOptions<
+  TName extends string = string,
   TMethods extends Record<string, (...args: any[]) => any> = {}
 > = {
+  name: TName;
   hooks?: Hooks;
   handlerWrapper?: <TInput, TOutput, TError>(
     originalHandler: (
@@ -77,23 +79,33 @@ export type PluginOptions<
 };
 
 /**
- * Extracts and merges method types from a tuple of PluginOptions.
- * Recursively walks the tuple, extracting TMethods from each element
- * and intersecting them together.
+ * Extracts the name and methods from a single PluginOptions.
  */
-export type ExtractPluginMethods<T extends readonly PluginOptions<any>[]> =
-  T extends readonly [
-    infer First extends PluginOptions<any>,
-    ...infer Rest extends readonly PluginOptions<any>[]
-  ]
-    ? (First extends PluginOptions<infer M> ? M : {}) & ExtractPluginMethods<Rest>
+type ExtractPluginNameAndMethods<T> = 
+  T extends PluginOptions<infer TName, infer TMethods>
+    ? { [K in TName]: TMethods }
     : {};
+
+/**
+ * Recursively builds the plugin methods type.
+ */
+type BuildPluginMethods<T extends readonly PluginOptions<any, any>[], Acc = {}> = 
+  T extends readonly [infer First extends PluginOptions<any, any>, ...infer Rest extends readonly PluginOptions<any, any>[]]
+    ? BuildPluginMethods<Rest, Acc & ExtractPluginNameAndMethods<First>>
+    : Acc;
+
+/**
+ * Extracts and groups method types from a tuple of PluginOptions.
+ * Creates a nested object where keys are plugin names and values are the plugin's methods.
+ */
+export type ExtractPluginMethods<T extends readonly PluginOptions<any, any>[]> = 
+  BuildPluginMethods<T>;
 
 /**
  * Configuration for the API client
  */
 export type ApiConfig<
-  TPlugins extends readonly PluginOptions<any>[] = readonly PluginOptions[]
+  TPlugins extends readonly PluginOptions<any, any>[] = readonly PluginOptions[]
 > = {
   baseUrl: string;
   fetch?: typeof fetch;

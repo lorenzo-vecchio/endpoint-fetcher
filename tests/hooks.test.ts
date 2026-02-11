@@ -50,7 +50,7 @@ describe('hooks integration', () => {
     const order: string[] = [];
     const mockFetch = createMockFetch({ body: {} });
 
-    const testPlugin = createPlugin(() => ({
+    const testPlugin = createPlugin('test', () => ({
       hooks: {
         beforeRequest: async (url: string, init: RequestInit) => {
           order.push('plugin');
@@ -219,7 +219,7 @@ describe('hooks integration', () => {
     const order: string[] = [];
     const mockFetch = createMockFetch({ body: {} });
 
-    const pluginA = createPlugin(() => ({
+    const pluginA = createPlugin('pluginA', () => ({
       hooks: {
         beforeRequest: async (url: string, init: RequestInit) => {
           order.push('A');
@@ -228,7 +228,7 @@ describe('hooks integration', () => {
       },
     }));
 
-    const pluginB = createPlugin(() => ({
+    const pluginB = createPlugin('pluginB', () => ({
       hooks: {
         beforeRequest: async (url: string, init: RequestInit) => {
           order.push('B');
