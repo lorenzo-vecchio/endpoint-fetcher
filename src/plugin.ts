@@ -4,18 +4,26 @@ import type { Hooks, EndpointConfig, PluginOptions, HttpMethod } from './types';
  * Plugin factory function type
  * Plugins export a function that takes configuration and returns PluginOptions
  */
-export type Plugin<TConfig = void> = TConfig extends void
-  ? () => PluginOptions
-  : (config: TConfig) => PluginOptions;
+export type Plugin<
+  TConfig = void,
+  TMethods extends Record<string, (...args: any[]) => any> = {}
+> = TConfig extends void
+  ? () => PluginOptions<TMethods>
+  : (config: TConfig) => PluginOptions<TMethods>;
 
 /**
  * Type helper to extract plugin config type
  */
-export type PluginConfig<T> = T extends Plugin<infer TConfig> ? TConfig : never;
+export type PluginConfig<T> = T extends Plugin<infer TConfig, any> ? TConfig : never;
+
+/**
+ * Type helper to extract plugin methods type
+ */
+export type PluginMethods<T> = T extends Plugin<any, infer TMethods> ? TMethods : {};
 
 /**
  * Creates a plugin with proper typing
- * 
+ *
  * @example
  * ```typescript
  * // Plugin without config
@@ -27,7 +35,7 @@ export type PluginConfig<T> = T extends Plugin<infer TConfig> ? TConfig : never;
  *     }
  *   }
  * }));
- * 
+ *
  * // Plugin with config
  * export const authPlugin = createPlugin((config: { token: string }) => ({
  *   hooks: {
@@ -38,7 +46,7 @@ export type PluginConfig<T> = T extends Plugin<infer TConfig> ? TConfig : never;
  *     }
  *   }
  * }));
- * 
+ *
  * // Plugin with handler wrapper (e.g., retry logic)
  * export const retryPlugin = createPlugin((config: { maxRetries: number }) => ({
  *   handlerWrapper: (originalHandler) => {
@@ -58,11 +66,19 @@ export type PluginConfig<T> = T extends Plugin<infer TConfig> ? TConfig : never;
  *     };
  *   }
  * }));
- * 
+ *
+ * // Plugin with methods (type-safe, accessible via client.plugins)
+ * export const metricsPlugin = createPlugin((config: { endpoint: string }) => ({
+ *   methods: {
+ *     getMetrics: () => fetch(config.endpoint).then(r => r.json()),
+ *     resetMetrics: () => fetch(config.endpoint, { method: 'DELETE' }),
+ *   }
+ * }));
+ *
  * // Plugin with both hooks and handler wrapper
  * export const cachingPlugin = createPlugin((config: { ttl: number }) => {
  *   const cache = new Map<string, { data: any; expires: number }>();
- *   
+ *
  *   return {
  *     hooks: {
  *       beforeRequest: async (url, init) => {
@@ -76,11 +92,11 @@ export type PluginConfig<T> = T extends Plugin<infer TConfig> ? TConfig : never;
  *       return async (input, context) => {
  *         const cacheKey = `${context.method}:${context.path}`;
  *         const cached = cache.get(cacheKey);
- *         
+ *
  *         if (cached && cached.expires > Date.now()) {
  *           return cached.data;
  *         }
- *         
+ *
  *         const result = await originalHandler(input, context);
  *         cache.set(cacheKey, { data: result, expires: Date.now() + config.ttl * 1000 });
  *         return result;
@@ -90,8 +106,13 @@ export type PluginConfig<T> = T extends Plugin<infer TConfig> ? TConfig : never;
  * }));
  * ```
  */
-export function createPlugin<TConfig = void>(
-  factory: Plugin<TConfig>
-): Plugin<TConfig> {
-  return factory;
+export function createPlugin<
+  TConfig = void,
+  const TMethods extends Record<string, (...args: any[]) => any> = {}
+>(
+  factory: TConfig extends void
+    ? () => PluginOptions<TMethods>
+    : (config: TConfig) => PluginOptions<TMethods>
+): Plugin<TConfig, TMethods> {
+  return factory as Plugin<TConfig, TMethods>;
 }

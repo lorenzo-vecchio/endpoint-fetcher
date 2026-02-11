@@ -5,7 +5,8 @@ import type {
   EndpointDefinitions,
   GroupConfig,
   Hooks,
-  PluginOptions
+  PluginOptions,
+  ExtractPluginMethods
 } from './types';
 import { isGroupConfig } from './types';
 import { buildUrl, mergeHooks, createEnhancedFetch } from './utils';
@@ -228,9 +229,11 @@ type ExtractGroupTypes<T extends GroupConfig> =
 /**
  * The resulting client type
  */
-type Client<T extends EndpointDefinitions> = {
+type Client<T extends EndpointDefinitions, TPluginMethods = {}> = {
   [K in keyof T]: ExtractEndpointTypes<T[K]>;
-};
+} & (keyof TPluginMethods extends never
+  ? {}
+  : { plugins: TPluginMethods });
 
 /**
  * Creates a typed API client from endpoint definitions
@@ -265,10 +268,13 @@ type Client<T extends EndpointDefinitions> = {
  * const user = await api.users.getById({ id: 1 });
  * ```
  */
-export function createApiClient<TEndpoints extends EndpointDefinitions>(
+export function createApiClient<
+  TEndpoints extends EndpointDefinitions,
+  const TPlugins extends readonly PluginOptions<any>[] = []
+>(
   endpoints: TEndpoints,
-  config: ApiConfig
-) {
+  config: ApiConfig<TPlugins>
+): Client<TEndpoints, ExtractPluginMethods<TPlugins>> {
   const fetchInstance = config.fetch ?? globalThis.fetch;
   const plugins = config.plugins ?? [];
   const client = processEndpoints(
@@ -276,7 +282,21 @@ export function createApiClient<TEndpoints extends EndpointDefinitions>(
     config,
     fetchInstance,
     [],
-    plugins
-  ) as Client<TEndpoints>;
-  return client;
+    [...plugins] as PluginOptions[]
+  ) as any;
+
+  // Collect methods from all plugins and merge into a single object
+  const pluginMethods: Record<string, (...args: any[]) => any> = {};
+  for (const plugin of plugins) {
+    if (plugin.methods) {
+      Object.assign(pluginMethods, plugin.methods);
+    }
+  }
+
+  // Attach plugin methods to client if any exist
+  if (Object.keys(pluginMethods).length > 0) {
+    client.plugins = pluginMethods;
+  }
+
+  return client as Client<TEndpoints, ExtractPluginMethods<TPlugins>>;
 }
