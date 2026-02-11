@@ -49,7 +49,9 @@ export type GroupConfig = {
 /**
  * Plugin options returned by plugin factory functions
  */
-export type PluginOptions = {
+export type PluginOptions<
+  TMethods extends Record<string, (...args: any[]) => any> = {}
+> = {
   hooks?: Hooks;
   handlerWrapper?: <TInput, TOutput, TError>(
     originalHandler: (
@@ -71,17 +73,33 @@ export type PluginOptions = {
       baseUrl: string;
     }
   ) => Promise<TOutput>;
+  methods?: TMethods;
 };
+
+/**
+ * Extracts and merges method types from a tuple of PluginOptions.
+ * Recursively walks the tuple, extracting TMethods from each element
+ * and intersecting them together.
+ */
+export type ExtractPluginMethods<T extends readonly PluginOptions<any>[]> =
+  T extends readonly [
+    infer First extends PluginOptions<any>,
+    ...infer Rest extends readonly PluginOptions<any>[]
+  ]
+    ? (First extends PluginOptions<infer M> ? M : {}) & ExtractPluginMethods<Rest>
+    : {};
 
 /**
  * Configuration for the API client
  */
-export type ApiConfig = {
+export type ApiConfig<
+  TPlugins extends readonly PluginOptions<any>[] = readonly PluginOptions[]
+> = {
   baseUrl: string;
   fetch?: typeof fetch;
   defaultHeaders?: HeadersInit;
   hooks?: Hooks;
-  plugins?: PluginOptions[];
+  plugins?: TPlugins;
 };
 
 /**

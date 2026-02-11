@@ -13,7 +13,8 @@ export type {
   GroupConfig,
   ApiConfig,
   EndpointDefinitions,
-  PluginOptions
+  PluginOptions,
+  ExtractPluginMethods
 } from './types';
 
 export { isGroupConfig } from './types';
@@ -36,7 +37,8 @@ export {
 export {
   createPlugin,
   type Plugin,
-  type PluginConfig
+  type PluginConfig,
+  type PluginMethods
 } from './plugin';
 
 // Export utilities (in case users need them)
