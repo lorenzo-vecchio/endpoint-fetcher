@@ -1,6 +1,6 @@
 {
   "name": "endpoint-fetcher",
-  "version": "2.3.1",
+  "version": "3.0.0",
   "type": "module",
   "description": "Type-safe API client builder using fetch",
   "main": "./dist/index.cjs",
