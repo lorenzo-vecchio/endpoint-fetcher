@@ -44,6 +44,7 @@ export {
 // Export utilities (in case users need them)
 export {
   buildUrl,
+  concatPaths,
   mergeHooks,
   createEnhancedFetch
 } from './utils';

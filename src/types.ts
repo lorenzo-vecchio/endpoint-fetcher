@@ -42,6 +42,7 @@ export type Hooks = {
  */
 export type GroupConfig = {
   hooks?: Hooks;
+  basePath?: string;
   endpoints?: EndpointDefinitions;
   groups?: Record<string, GroupConfig>;
 };
@@ -123,5 +124,5 @@ export type EndpointDefinitions = Record<string, EndpointConfig<any, any> | Grou
  * Type guard to check if a config is a GroupConfig
  */
 export function isGroupConfig(config: EndpointConfig | GroupConfig): config is GroupConfig {
-  return 'endpoints' in config || 'groups' in config;
+  return 'endpoints' in config || 'groups' in config || 'basePath' in config;
 }

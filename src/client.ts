@@ -9,7 +9,7 @@ import type {
   ExtractPluginMethods
 } from './types';
 import { isGroupConfig } from './types';
-import { buildUrl, mergeHooks, createEnhancedFetch } from './utils';
+import { buildUrl, mergeHooks, createEnhancedFetch, concatPaths } from './utils';
 
 /**
  * Default handler for API requests
@@ -95,7 +95,8 @@ function processEndpoints(
   config: ApiConfig,
   fetchInstance: typeof fetch,
   parentHooks: Hooks[] = [],
-  plugins: PluginOptions[] = []
+  plugins: PluginOptions[] = [],
+  parentBasePath: string = ''
 ): any {
   const result: any = {};
 
@@ -106,6 +107,8 @@ function processEndpoints(
         groupHooks.push(definition.hooks);
       }
 
+      const groupBasePath = concatPaths(parentBasePath, definition.basePath ?? '');
+
       result[name] = {};
 
       if (definition.endpoints) {
@@ -114,7 +117,8 @@ function processEndpoints(
           config,
           fetchInstance,
           groupHooks,
-          plugins
+          plugins,
+          groupBasePath
         );
         Object.assign(result[name], nestedEndpoints);
       }
@@ -125,23 +129,26 @@ function processEndpoints(
           config,
           fetchInstance,
           groupHooks,
-          plugins
+          plugins,
+          groupBasePath
         );
         Object.assign(result[name], nestedGroups);
       }
     } else {
       const endpoint = definition as EndpointConfig;
-      
+
       // Collect hooks from plugins
       const pluginHooks = plugins.map(p => p.hooks).filter(Boolean) as Hooks[];
-      
+
       // Merge hooks in order: plugin -> global -> group -> endpoint
       const mergedHooks = mergeHooks(...pluginHooks, config.hooks, ...parentHooks, endpoint.hooks);
 
       result[name] = async (input: any) => {
-        const path = typeof endpoint.path === 'function'
+        const rawPath = typeof endpoint.path === 'function'
           ? endpoint.path(input)
           : endpoint.path;
+
+        const path = concatPaths(parentBasePath, rawPath);
 
         // Create the base handler (either custom or default)
         let baseHandler: (

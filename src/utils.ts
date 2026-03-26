@@ -1,6 +1,17 @@
 import type { Hooks } from './types';
 
 /**
+ * Concatenates a base path prefix with an endpoint path, normalizing slashes.
+ * Used to apply group-level basePath to endpoint paths.
+ */
+export function concatPaths(base: string, path: string): string {
+  if (!base) return path.startsWith('/') ? path : (path ? `/${path}` : '/');
+  const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
+  const normalizedPath = path.startsWith('/') ? path : (path ? `/${path}` : '');
+  return `${normalizedBase}${normalizedPath}`;
+}
+
+/**
  * Builds a complete URL from a path and base URL
  */
 export function buildUrl(path: string, baseUrl: string): string {

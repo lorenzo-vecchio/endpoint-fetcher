@@ -160,6 +160,73 @@ describe('client groups', () => {
     expect(groupAHook).toHaveBeenCalledTimes(2);
   });
 
+  it('applies group basePath as prefix to endpoint paths', async () => {
+    const mockFetch = createMockFetch({ body: [] });
+    const api = createApiClient(
+      {
+        users: group({
+          basePath: '/users',
+          endpoints: {
+            list: get<void, any>(''),
+            getById: get<{ id: number }, any>((input) => `/${input.id}`),
+          },
+        }),
+      },
+      { baseUrl: 'https://api.example.com', fetch: mockFetch }
+    );
+
+    await api.users.list(undefined as void);
+    expect((mockFetch as any).mock.calls[0][0]).toBe('https://api.example.com/users');
+
+    await api.users.getById({ id: 42 });
+    expect((mockFetch as any).mock.calls[1][0]).toBe('https://api.example.com/users/42');
+  });
+
+  it('concatenates nested group basePaths', async () => {
+    const mockFetch = createMockFetch({ body: {} });
+    const api = createApiClient(
+      {
+        api: group({
+          basePath: '/api',
+          groups: {
+            v1: group({
+              basePath: '/v1',
+              endpoints: {
+                users: get<void, any>('/users'),
+              },
+            }),
+          },
+        }),
+      },
+      { baseUrl: 'https://api.example.com', fetch: mockFetch }
+    );
+
+    await api.api.v1.users(undefined as void);
+    expect((mockFetch as any).mock.calls[0][0]).toBe('https://api.example.com/api/v1/users');
+  });
+
+  it('group basePath does not affect sibling groups', async () => {
+    const mockFetch = createMockFetch({ body: {} });
+    const api = createApiClient(
+      {
+        users: group({
+          basePath: '/users',
+          endpoints: { list: get<void, any>('') },
+        }),
+        posts: group({
+          endpoints: { list: get<void, any>('/posts') },
+        }),
+      },
+      { baseUrl: 'https://api.example.com', fetch: mockFetch }
+    );
+
+    await api.users.list(undefined as void);
+    expect((mockFetch as any).mock.calls[0][0]).toBe('https://api.example.com/users');
+
+    await api.posts.list(undefined as void);
+    expect((mockFetch as any).mock.calls[1][0]).toBe('https://api.example.com/posts');
+  });
+
   it('handles deep nesting (3+ levels)', async () => {
     const mockFetch = createMockFetch({ body: { deep: true } });
     const api = createApiClient(
