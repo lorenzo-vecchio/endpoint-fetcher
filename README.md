@@ -1,5 +1,7 @@
 # endpoint-fetcher
 
+![NPM Downloads](https://img.shields.io/npm/d18m/endpoint-fetcher?style=for-the-badge)
+
 A type-safe API client builder using the Fetch API with full TypeScript support, nested groups, and hierarchical hooks.
 
 ## Installation
